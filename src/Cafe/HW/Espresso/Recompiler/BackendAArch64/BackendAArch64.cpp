@@ -7,10 +7,14 @@
 #include <xbyak_aarch64_util.h>
 
 #include <cstddef>
+#if defined(__APPLE__)
+#include <pthread.h>
+#endif
 
 #include "../PPCRecompiler.h"
 #include "Common/precompiled.h"
 #include "Common/cpu_features.h"
+#include "util/MemMapper/MemMapper.h"
 #include "HW/Espresso/Interpreter/PPCInterpreterInternal.h"
 #include "HW/Espresso/Interpreter/PPCInterpreterHelper.h"
 #include "HW/Espresso/PPCState.h"
@@ -60,42 +64,16 @@ static const FPReg TEMP_FPR{TEMP_FPR_ID};
 
 static const util::Cpu s_cpu;
 
-class AArch64Allocator : public Allocator
+// code is emitted into a plain heap buffer and afterwards copied into the shared executable code space
+struct HeapAllocator : Allocator
 {
-  private:
-#ifdef XBYAK_USE_MMAP_ALLOCATOR
-	inline static MmapAllocator s_allocator;
-#else
-	inline static Allocator s_allocator;
-#endif
-	Allocator* m_allocatorImpl;
-	bool m_freeDisabled = false;
-
-  public:
-	AArch64Allocator()
-		: m_allocatorImpl(reinterpret_cast<Allocator*>(&s_allocator)) {}
-
-	uint32* alloc(size_t size) override
-	{
-		return m_allocatorImpl->alloc(size);
-	}
-
-	void setFreeDisabled(bool disabled)
-	{
-		m_freeDisabled = disabled;
-	}
-
-	void free(uint32* p) override
-	{
-		if (!m_freeDisabled)
-			m_allocatorImpl->free(p);
-	}
-
 	[[nodiscard]] bool useProtect() const override
 	{
-		return !m_freeDisabled && m_allocatorImpl->useProtect();
+		return false;
 	}
 };
+
+static HeapAllocator s_heapAllocator;
 
 struct UnconditionalJumpInfo
 {
@@ -122,7 +100,7 @@ using JumpInfo = std::variant<
 
 struct AArch64GenContext_t : CodeGenerator
 {
-	explicit AArch64GenContext_t(Allocator* allocator = nullptr);
+	AArch64GenContext_t();
 	void enterRecompilerCode();
 	void leaveRecompilerCode();
 
@@ -323,9 +301,47 @@ To aliasAs(const From& reg)
 	return To(reg.getIdx());
 }
 
-AArch64GenContext_t::AArch64GenContext_t(Allocator* allocator)
-	: CodeGenerator(DEFAULT_MAX_CODE_SIZE, AutoGrow, allocator)
+AArch64GenContext_t::AArch64GenContext_t()
+	: CodeGenerator(DEFAULT_MAX_CODE_SIZE, AutoGrow, &s_heapAllocator)
 {
+}
+
+// executable memory is handed out from large blocks which are never freed (same as the x64 backend and Dolphin's code space)
+// on macOS these blocks are MAP_JIT regions which are writable by the current thread only while JIT write protection is disabled
+static std::mutex s_codeMemoryMutex;
+static uint8* s_codeMemoryBlock = nullptr;
+static size_t s_codeMemoryBlockIndex = 0;
+static size_t s_codeMemoryBlockSize = 0;
+
+static void* PPCRecompilerAArch64_copyToExecutableMemory(const AArch64GenContext_t& aarch64GenContext)
+{
+	const size_t size = aarch64GenContext.getSize();
+	std::lock_guard lock(s_codeMemoryMutex);
+	if (s_codeMemoryBlockIndex + size > s_codeMemoryBlockSize)
+	{
+		const size_t blockSize = std::max<size_t>(4 * 1024 * 1024, size);
+		uint8* block = (uint8*)MemMapper::AllocateMemory(nullptr, blockSize, MemMapper::PAGE_PERMISSION::P_RWX);
+		if (!block)
+		{
+			cemuLog_log(LogType::Force, "PPCRecompiler: Failed to allocate executable memory");
+			return nullptr;
+		}
+		s_codeMemoryBlock = block;
+		s_codeMemoryBlockIndex = 0;
+		s_codeMemoryBlockSize = blockSize;
+	}
+	uint8* code = s_codeMemoryBlock + s_codeMemoryBlockIndex;
+	s_codeMemoryBlockIndex += size;
+
+#if defined(__APPLE__)
+	pthread_jit_write_protect_np(false);
+#endif
+	memcpy(code, aarch64GenContext.getCode(), size);
+#if defined(__APPLE__)
+	pthread_jit_write_protect_np(true);
+#endif
+	__builtin___clear_cache((char*)code, (char*)code + size);
+	return code;
 }
 
 constexpr uint64 ones(uint32 size)
@@ -1486,8 +1502,7 @@ void AArch64GenContext_t::call_imm(IMLInstruction* imlInstruction)
 
 bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext)
 {
-	AArch64Allocator allocator;
-	AArch64GenContext_t aarch64GenContext{&allocator};
+	AArch64GenContext_t aarch64GenContext;
 
 	// generate iml instruction code
 	bool codeGenerationFailed = false;
@@ -1663,22 +1678,15 @@ bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, 
 	}
 	aarch64GenContext.setSize(codeSize);
 
-	aarch64GenContext.readyRE();
+	aarch64GenContext.ready();
 
 	// set code
-	PPCRecFunction->x86Code = aarch64GenContext.getCode<void*>();
-	PPCRecFunction->x86Size = aarch64GenContext.getMaxSize();
-	// set free disabled to skip freeing the code from the CodeGenerator destructor
-	allocator.setFreeDisabled(true);
+	void* code = PPCRecompilerAArch64_copyToExecutableMemory(aarch64GenContext);
+	if (!code)
+		return false;
+	PPCRecFunction->x86Code = code;
+	PPCRecFunction->x86Size = codeSize;
 	return true;
-}
-
-void PPCRecompiler_cleanupAArch64Code(void* code, size_t size)
-{
-	AArch64Allocator allocator;
-	if (allocator.useProtect())
-		CodeArray::protect(code, size, CodeArray::PROTECT_RW);
-	allocator.free(static_cast<uint32*>(code));
 }
 
 void AArch64GenContext_t::enterRecompilerCode()
@@ -1724,26 +1732,25 @@ void AArch64GenContext_t::leaveRecompilerCode()
 	ret();
 }
 
-bool initializedInterfaceFunctions = false;
-AArch64GenContext_t enterRecompilerCode_ctx{};
+template<typename TFunc>
+static TFunc PPCRecompilerAArch64Gen_generateInterfaceFunction(void (AArch64GenContext_t::*emitFunc)())
+{
+	AArch64GenContext_t aarch64GenContext;
+	(aarch64GenContext.*emitFunc)();
+	aarch64GenContext.ready();
+	void* code = PPCRecompilerAArch64_copyToExecutableMemory(aarch64GenContext);
+	cemu_assert(code);
+	return reinterpret_cast<TFunc>(code);
+}
 
-AArch64GenContext_t leaveRecompilerCode_unvisited_ctx{};
-AArch64GenContext_t leaveRecompilerCode_visited_ctx{};
+bool initializedInterfaceFunctions = false;
 void PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
 {
 	if (initializedInterfaceFunctions)
 		return;
 	initializedInterfaceFunctions = true;
 
-	enterRecompilerCode_ctx.enterRecompilerCode();
-	enterRecompilerCode_ctx.readyRE();
-	PPCRecompiler_enterRecompilerCode = enterRecompilerCode_ctx.getCode<decltype(PPCRecompiler_enterRecompilerCode)>();
-
-	leaveRecompilerCode_unvisited_ctx.leaveRecompilerCode();
-	leaveRecompilerCode_unvisited_ctx.readyRE();
-	PPCRecompiler_leaveRecompilerCode_unvisited = leaveRecompilerCode_unvisited_ctx.getCode<decltype(PPCRecompiler_leaveRecompilerCode_unvisited)>();
-
-	leaveRecompilerCode_visited_ctx.leaveRecompilerCode();
-	leaveRecompilerCode_visited_ctx.readyRE();
-	PPCRecompiler_leaveRecompilerCode_visited = leaveRecompilerCode_visited_ctx.getCode<decltype(PPCRecompiler_leaveRecompilerCode_visited)>();
+	PPCRecompiler_enterRecompilerCode = PPCRecompilerAArch64Gen_generateInterfaceFunction<decltype(PPCRecompiler_enterRecompilerCode)>(&AArch64GenContext_t::enterRecompilerCode);
+	PPCRecompiler_leaveRecompilerCode_unvisited = PPCRecompilerAArch64Gen_generateInterfaceFunction<decltype(PPCRecompiler_leaveRecompilerCode_unvisited)>(&AArch64GenContext_t::leaveRecompilerCode);
+	PPCRecompiler_leaveRecompilerCode_visited = PPCRecompilerAArch64Gen_generateInterfaceFunction<decltype(PPCRecompiler_leaveRecompilerCode_visited)>(&AArch64GenContext_t::leaveRecompilerCode);
 }
