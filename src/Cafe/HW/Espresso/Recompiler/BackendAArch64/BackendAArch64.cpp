@@ -1743,13 +1743,9 @@ static TFunc PPCRecompilerAArch64Gen_generateInterfaceFunction(void (AArch64GenC
 	return reinterpret_cast<TFunc>(code);
 }
 
-bool initializedInterfaceFunctions = false;
+// regenerated on every recompiler init since the instance data pointer embedded in enterRecompilerCode can change
 void PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
 {
-	if (initializedInterfaceFunctions)
-		return;
-	initializedInterfaceFunctions = true;
-
 	PPCRecompiler_enterRecompilerCode = PPCRecompilerAArch64Gen_generateInterfaceFunction<decltype(PPCRecompiler_enterRecompilerCode)>(&AArch64GenContext_t::enterRecompilerCode);
 	PPCRecompiler_leaveRecompilerCode_unvisited = PPCRecompilerAArch64Gen_generateInterfaceFunction<decltype(PPCRecompiler_leaveRecompilerCode_unvisited)>(&AArch64GenContext_t::leaveRecompilerCode);
 	PPCRecompiler_leaveRecompilerCode_visited = PPCRecompilerAArch64Gen_generateInterfaceFunction<decltype(PPCRecompiler_leaveRecompilerCode_visited)>(&AArch64GenContext_t::leaveRecompilerCode);
