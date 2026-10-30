@@ -203,10 +203,8 @@ else()
 			else()
 				message(WARNING "libMoltenVK.dylib not found")
 			endif()
-			set_target_properties(CemuBin PROPERTIES
-				BUILD_WITH_INSTALL_RPATH TRUE
-				INSTALL_RPATH "/usr/local/lib;/opt/homebrew/lib"
-			)
+			# MoltenVK may use an @rpath install name, the remaining paths (e.g. vcpkg dylibs) are added by CMake automatically
+			set_property(TARGET CemuBin PROPERTY BUILD_RPATH "/usr/local/lib;/opt/homebrew/lib")
 		endif()
     endif()
 endif()
