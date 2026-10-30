@@ -78,6 +78,12 @@ CPUMode ActiveSettings::GetCPUMode()
 	else if (mode == CPUMode::DualcoreRecompiler) // dualcore is disabled now
 		mode = CPUMode::MulticoreRecompiler;
 
+#if defined(__aarch64__)
+	// multi-core emulation is unstable on AArch64 (games freeze or hang), only a single emulated core is supported
+	if (mode == CPUMode::MulticoreRecompiler)
+		mode = CPUMode::SinglecoreRecompiler;
+#endif
+
 	return mode;
 }
 
