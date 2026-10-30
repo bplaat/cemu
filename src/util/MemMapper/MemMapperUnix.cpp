@@ -55,7 +55,17 @@ namespace MemMapper
                 r = nullptr;
 		}
 		else
-			r = mmap(baseAddr, size, GetProt(permissionFlags), MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		{
+			int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+#if defined(__APPLE__)
+			// macOS only allows RWX mappings for JIT regions, writes are toggled per thread with pthread_jit_write_protect_np
+			if (permissionFlags == PAGE_PERMISSION::P_RWX)
+				flags |= MAP_JIT;
+#endif
+			r = mmap(baseAddr, size, GetProt(permissionFlags), flags, -1, 0);
+			if (r == MAP_FAILED)
+				r = nullptr;
+		}
 		return r;
 	}
 
