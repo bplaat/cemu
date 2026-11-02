@@ -92,8 +92,8 @@ void PPCInterpreter_PS_NMADD(PPCInterpreter_t* hCPU, uint32 Opcode)
 	frA = (Opcode>>16)&0x1F;
 	frD = (Opcode>>21)&0x1F;
 
-	float s0 = (float)-(hCPU->fpr[frA].fp0 * roundTo25BitAccuracy(hCPU->fpr[frC].fp0) + hCPU->fpr[frB].fp0);
-	float s1 = (float)-(hCPU->fpr[frA].fp1 * roundTo25BitAccuracy(hCPU->fpr[frC].fp1) + hCPU->fpr[frB].fp1);
+	float s0 = (float)-std::fma(hCPU->fpr[frA].fp0, roundTo25BitAccuracy(hCPU->fpr[frC].fp0), hCPU->fpr[frB].fp0);
+	float s1 = (float)-std::fma(hCPU->fpr[frA].fp1, roundTo25BitAccuracy(hCPU->fpr[frC].fp1), hCPU->fpr[frB].fp1);
 
 	hCPU->fpr[frD].fp0 = s0;
 	hCPU->fpr[frD].fp1 = s1;
@@ -111,8 +111,8 @@ void PPCInterpreter_PS_MSUB(PPCInterpreter_t* hCPU, uint32 Opcode)
 	frA = (Opcode >> 16) & 0x1F;
 	frD = (Opcode >> 21) & 0x1F;
 
-	float s0 = (float)(hCPU->fpr[frA].fp0 * roundTo25BitAccuracy(hCPU->fpr[frC].fp0) - hCPU->fpr[frB].fp0);
-	float s1 = (float)(hCPU->fpr[frA].fp1 * roundTo25BitAccuracy(hCPU->fpr[frC].fp1) - hCPU->fpr[frB].fp1);
+	float s0 = (float)std::fma(hCPU->fpr[frA].fp0, roundTo25BitAccuracy(hCPU->fpr[frC].fp0), -hCPU->fpr[frB].fp0);
+	float s1 = (float)std::fma(hCPU->fpr[frA].fp1, roundTo25BitAccuracy(hCPU->fpr[frC].fp1), -hCPU->fpr[frB].fp1);
 
 	hCPU->fpr[frD].fp0 = s0;
 	hCPU->fpr[frD].fp1 = s1;
@@ -130,8 +130,8 @@ void PPCInterpreter_PS_NMSUB(PPCInterpreter_t* hCPU, uint32 Opcode)
 	frA = (Opcode >> 16) & 0x1F;
 	frD = (Opcode >> 21) & 0x1F;
 
-	float s0 = (float)-(hCPU->fpr[frA].fp0 * roundTo25BitAccuracy(hCPU->fpr[frC].fp0) - hCPU->fpr[frB].fp0);
-	float s1 = (float)-(hCPU->fpr[frA].fp1 * roundTo25BitAccuracy(hCPU->fpr[frC].fp1) - hCPU->fpr[frB].fp1);
+	float s0 = (float)-std::fma(hCPU->fpr[frA].fp0, roundTo25BitAccuracy(hCPU->fpr[frC].fp0), -hCPU->fpr[frB].fp0);
+	float s1 = (float)-std::fma(hCPU->fpr[frA].fp1, roundTo25BitAccuracy(hCPU->fpr[frC].fp1), -hCPU->fpr[frB].fp1);
 
 	hCPU->fpr[frD].fp0 = s0;
 	hCPU->fpr[frD].fp1 = s1;
@@ -150,8 +150,8 @@ void PPCInterpreter_PS_MADDS0(PPCInterpreter_t* hCPU, uint32 Opcode)
 	frD = (Opcode>>21)&0x1F;
 
 	double c = roundTo25BitAccuracy(hCPU->fpr[frC].fp0);
-	float s0 = (float)(hCPU->fpr[frA].fp0 * c + hCPU->fpr[frB].fp0);
-	float s1 = (float)(hCPU->fpr[frA].fp1 * c + hCPU->fpr[frB].fp1);
+	float s0 = (float)std::fma(hCPU->fpr[frA].fp0, c, hCPU->fpr[frB].fp0);
+	float s1 = (float)std::fma(hCPU->fpr[frA].fp1, c, hCPU->fpr[frB].fp1);
 
 	hCPU->fpr[frD].fp0 = s0;
 	hCPU->fpr[frD].fp1 = s1;
@@ -170,8 +170,8 @@ void PPCInterpreter_PS_MADDS1(PPCInterpreter_t* hCPU, uint32 Opcode)
 	frD = (Opcode>>21)&0x1F;
 
 	double c = roundTo25BitAccuracy(hCPU->fpr[frC].fp1);
-	float s0 = (float)(hCPU->fpr[frA].fp0 * c + hCPU->fpr[frB].fp0);
-	float s1 = (float)(hCPU->fpr[frA].fp1 * c + hCPU->fpr[frB].fp1);
+	float s0 = (float)std::fma(hCPU->fpr[frA].fp0, c, hCPU->fpr[frB].fp0);
+	float s1 = (float)std::fma(hCPU->fpr[frA].fp1, c, hCPU->fpr[frB].fp1);
 
 	hCPU->fpr[frD].fp0 = s0;
 	hCPU->fpr[frD].fp1 = s1;

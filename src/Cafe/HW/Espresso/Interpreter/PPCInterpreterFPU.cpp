@@ -444,7 +444,7 @@ void PPCInterpreter_FMADD(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fpr = hCPU->fpr[frA].fpr * hCPU->fpr[frC].fpr + hCPU->fpr[frB].fpr;
+	hCPU->fpr[frD].fpr = std::fma(hCPU->fpr[frA].fpr, hCPU->fpr[frC].fpr, hCPU->fpr[frB].fpr);
 
 	PPCInterpreter_nextInstruction(hCPU);
 }
@@ -456,7 +456,7 @@ void PPCInterpreter_FNMADD(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fpr = -(hCPU->fpr[frA].fpr * hCPU->fpr[frC].fpr + hCPU->fpr[frB].fpr);
+	hCPU->fpr[frD].fpr = -std::fma(hCPU->fpr[frA].fpr, hCPU->fpr[frC].fpr, hCPU->fpr[frB].fpr);
 
 	PPCInterpreter_nextInstruction(hCPU);
 }
@@ -468,7 +468,7 @@ void PPCInterpreter_FMSUB(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fpr = (hCPU->fpr[frA].fpr * hCPU->fpr[frC].fpr - hCPU->fpr[frB].fpr);
+	hCPU->fpr[frD].fpr = std::fma(hCPU->fpr[frA].fpr, hCPU->fpr[frC].fpr, -hCPU->fpr[frB].fpr);
 
 	PPCInterpreter_nextInstruction(hCPU);
 }
@@ -480,7 +480,7 @@ void PPCInterpreter_FNMSUB(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fpr = -(hCPU->fpr[frA].fpr * hCPU->fpr[frC].fpr - hCPU->fpr[frB].fpr);
+	hCPU->fpr[frD].fpr = -std::fma(hCPU->fpr[frA].fpr, hCPU->fpr[frC].fpr, -hCPU->fpr[frB].fpr);
 
 	PPCInterpreter_nextInstruction(hCPU);
 }
@@ -592,7 +592,7 @@ void PPCInterpreter_FMADDS(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fpr = (float)(hCPU->fpr[frA].fpr * roundTo25BitAccuracy(hCPU->fpr[frC].fpr) + hCPU->fpr[frB].fpr);
+	hCPU->fpr[frD].fpr = (float)std::fma(hCPU->fpr[frA].fpr, roundTo25BitAccuracy(hCPU->fpr[frC].fpr), hCPU->fpr[frB].fpr);
 	if (PPC_PSE)
 		hCPU->fpr[frD].fp1 = hCPU->fpr[frD].fp0;
 
@@ -606,7 +606,7 @@ void PPCInterpreter_FNMADDS(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fpr = (float)-(hCPU->fpr[frA].fpr * roundTo25BitAccuracy(hCPU->fpr[frC].fpr) + hCPU->fpr[frB].fpr);
+	hCPU->fpr[frD].fpr = (float)-std::fma(hCPU->fpr[frA].fpr, roundTo25BitAccuracy(hCPU->fpr[frC].fpr), hCPU->fpr[frB].fpr);
 	if (PPC_PSE)
 		hCPU->fpr[frD].fp1 = hCPU->fpr[frD].fp0;
 
@@ -620,7 +620,7 @@ void PPCInterpreter_FMSUBS(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fp0 = (float)(hCPU->fpr[frA].fp0 * roundTo25BitAccuracy(hCPU->fpr[frC].fp0) - hCPU->fpr[frB].fp0);
+	hCPU->fpr[frD].fp0 = (float)std::fma(hCPU->fpr[frA].fp0, roundTo25BitAccuracy(hCPU->fpr[frC].fp0), -hCPU->fpr[frB].fp0);
 	if (PPC_PSE)
 		hCPU->fpr[frD].fp1 = hCPU->fpr[frD].fp0;
 
@@ -634,7 +634,7 @@ void PPCInterpreter_FNMSUBS(PPCInterpreter_t* hCPU, uint32 Opcode)
 	int frD, frA, frB, frC;
 	PPC_OPC_TEMPL_A(Opcode, frD, frA, frB, frC);
 
-	hCPU->fpr[frD].fp0 = (float)-(hCPU->fpr[frA].fp0 * roundTo25BitAccuracy(hCPU->fpr[frC].fp0) - hCPU->fpr[frB].fp0);
+	hCPU->fpr[frD].fp0 = (float)-std::fma(hCPU->fpr[frA].fp0, roundTo25BitAccuracy(hCPU->fpr[frC].fp0), -hCPU->fpr[frB].fp0);
 	if (PPC_PSE)
 		hCPU->fpr[frD].fp1 = hCPU->fpr[frD].fp0;
 
