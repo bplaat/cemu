@@ -79,6 +79,9 @@ uint32 FSCVirtualFile_Host::fscReadData(void* buffer, uint32 size)
 		cemu_assert_suspicious();
 		return 0;
 	}
+	// After the end of the file there is nothing to read
+	if (m_seek >= m_fileSize)
+		return 0;
 	uint32 bytesLeft = (uint32)(m_fileSize - m_seek);
 	bytesLeft = std::min(bytesLeft, 0x7FFFFFFFu);
 	sint32 bytesToRead = std::min(bytesLeft, size);
