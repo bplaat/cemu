@@ -82,6 +82,7 @@ std::optional<std::vector<uint8>> FileStream::LoadIntoMemory(const fs::path& pat
 void FileStream::SetPosition(uint64 pos)
 {
 	cemu_assert(m_isValid);
+	m_fileStream.clear();
 	if (m_prevOperationWasWrite)
 		m_fileStream.seekp((std::streampos)pos);
 	else
@@ -237,6 +238,8 @@ FileStream::FileStream(const fs::path& path, bool isOpen, bool isWriteable)
 
 void FileStream::SyncReadWriteSeek(bool nextOpIsWrite)
 {
+	// A read that reached the end leaves the stream failing every later operation
+	m_fileStream.clear();
 	// nextOpIsWrite == false -> read. Otherwise write
 	if (nextOpIsWrite == m_prevOperationWasWrite)
 		return;
