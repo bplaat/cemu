@@ -8,6 +8,7 @@ struct FSCVirtualFile;
 
 #define FSC_QUERY_SIZE					(1) // file size, 0 for directories
 #define FSC_QUERY_WRITEABLE				(2) // non-zero if file is writeable, else 0
+#define FSC_QUERY_MODIFIED_TIME			(3) // last modification in seconds since 1970, 0 if unknown
 
 enum class FSC_ACCESS_FLAG : uint8
 {

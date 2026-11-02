@@ -369,6 +369,15 @@ namespace iosu
 			return FSA_convertFSCtoFSAStatus(fscStatus);
 		}
 
+		// FSTime counts microseconds since 1980 in the console's time zone, like OSTime, or is 0 before then
+		uint64 __FSA_FSTimeFromUnixTime(uint64 unixTime)
+		{
+			constexpr sint64 FS_TIME_EPOCH = 315532800; // 1980-01-01 in seconds since 1970
+			sint64 utcOffset = (sint64)(ppcCyclesSince2000 / ESPRESSO_CORE_CLOCK) - (sint64)(ppcCyclesSince2000_UTC / ESPRESSO_CORE_CLOCK);
+			sint64 time = (sint64)unixTime + utcOffset - FS_TIME_EPOCH;
+			return time > 0 ? (uint64)time * 1000000 : 0;
+		}
+
 		bool __FSA_GetStatFromFSCFile(FSCVirtualFile* fscFile, FSStat_t* fsStatOut)
 		{
 			memset(fsStatOut, 0x00, sizeof(FSStat_t));
@@ -392,6 +401,9 @@ namespace iosu
 			}
 			fsStatOut->permissions = 0x777; // format matches unix (fstat) permissions?
 			fsStatOut->flag = statFlag;
+			// Host files have no portable creation time, so it's the modification time too
+			if (uint64 modifiedTime = fscFile->fscQueryValueU64(FSC_QUERY_MODIFIED_TIME))
+				fsStatOut->createdTime = fsStatOut->modifiedTime = __FSA_FSTimeFromUnixTime(modifiedTime);
 			return true;
 		}
 
