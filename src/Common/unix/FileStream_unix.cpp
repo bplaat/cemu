@@ -99,11 +99,15 @@ uint64 FileStream::GetSize()
 	return fs;
 }
 
+// Cuts the file off at the current position, after writing out what is buffered
 bool FileStream::SetEndOfFile()
 {
-	assert_dbg();
-	return true;
-	//return ::SetEndOfFile(m_hFile) != 0;
+	cemu_assert(m_isValid);
+	std::streampos position = m_prevOperationWasWrite ? m_fileStream.tellp() : m_fileStream.tellg();
+	m_fileStream.flush();
+	std::error_code ec;
+	fs::resize_file(m_path, (uintmax_t)position, ec);
+	return !ec;
 }
 
 void FileStream::extract(std::vector<uint8>& data)
@@ -213,6 +217,7 @@ FileStream::~FileStream()
 FileStream::FileStream(const fs::path& path, bool isOpen, bool isWriteable)
 {
 	fs::path CIPath = findPathCI(path);
+	m_path = CIPath;
 	if (isOpen)
 	{
 		m_fileStream.open(CIPath, isWriteable ? (std::ios_base::in | std::ios_base::out | std::ios_base::binary) : (std::ios_base::in | std::ios_base::binary));
