@@ -28,7 +28,7 @@ private:
 	uint64 m_seek{ 0 };
 	uint64 m_fileSize{ 0 };
 	bool m_isWritable{ false };
-	// directory
+	// file or directory
 	std::unique_ptr<std::filesystem::path> m_path{};
 	std::unique_ptr<std::filesystem::directory_iterator> m_dirIterator{};
 };

@@ -392,6 +392,10 @@ namespace iosu
 			}
 			fsStatOut->permissions = 0x777; // format matches unix (fstat) permissions?
 			fsStatOut->flag = statFlag;
+			// FSTime counts microseconds since 1980
+			uint64 modifiedTime = fscFile->fscQueryValueU64(FSC_QUERY_MODIFIED_TIME);
+			if (modifiedTime >= 315532800)
+				fsStatOut->createdTime = fsStatOut->modifiedTime = (modifiedTime - 315532800) * 1000000;
 			return true;
 		}
 

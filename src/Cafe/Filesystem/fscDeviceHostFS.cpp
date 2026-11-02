@@ -35,6 +35,14 @@ uint32 FSCVirtualFile_Host::fscDeviceHostFSFile_getFileSize()
 
 uint64 FSCVirtualFile_Host::fscQueryValueU64(uint32 id)
 {
+	if (id == FSC_QUERY_MODIFIED_TIME)
+	{
+		std::error_code ec;
+		auto time = fs::last_write_time(*m_path, ec);
+		if (ec)
+			return 0;
+		return (uint64)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::file_clock::to_sys(time).time_since_epoch()).count();
+	}
 	if (m_type == FSC_TYPE_FILE)
 	{
 		if (id == FSC_QUERY_SIZE)
@@ -197,6 +205,7 @@ FSCVirtualFile* FSCVirtualFile_Host::OpenFile(const fs::path& path, FSC_ACCESS_F
 			vf->m_fs = fs;
 			vf->m_isWritable = writeAccessRequested;
 			vf->m_fileSize = fs->GetSize();
+			vf->m_path.reset(new std::filesystem::path(path));
 			fscStatus = FSC_STATUS_OK;
 			return vf;
 		}
