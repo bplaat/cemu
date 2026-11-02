@@ -13,13 +13,18 @@ namespace
 
 	std::unique_ptr<VHeap> s_iosuStaticDataHeap{};
 	std::set<CafeStaticData*> s_iosuStaticDataBlocks;
-	std::mutex s_cafeStaticDataMutex;
+	std::mutex& GetCafeStaticDataMutex()
+	{
+		// Static data owners and variables can outlive this translation unit's globals.
+		static auto* s_mutex = new std::mutex;
+		return *s_mutex;
+	}
 }
 
 CafeStaticVarBase::CafeStaticVarBase(CafeStaticData& owner, uint32 size, uint32 alignment)
 	: m_owner(&owner), m_size(size), m_alignment(alignment)
 {
-	std::unique_lock _l(s_cafeStaticDataMutex);
+	std::unique_lock _l(GetCafeStaticDataMutex());
 	if (!owner.m_vars)
 		owner.m_vars = new std::vector<CafeStaticVarBase*>();
 	owner.m_vars->push_back(this);
@@ -27,7 +32,7 @@ CafeStaticVarBase::CafeStaticVarBase(CafeStaticData& owner, uint32 size, uint32 
 
 CafeStaticVarBase::~CafeStaticVarBase()
 {
-	std::unique_lock _l(s_cafeStaticDataMutex);
+	std::unique_lock _l(GetCafeStaticDataMutex());
 	if (m_owner)
 	{
 		cemu_assert(!m_owner->IsAllocated());
@@ -37,7 +42,7 @@ CafeStaticVarBase::~CafeStaticVarBase()
 
 bool CafeStaticData::HasAnyAllocations()
 {
-	std::unique_lock _l(s_cafeStaticDataMutex);
+	std::unique_lock _l(GetCafeStaticDataMutex());
 	return !s_iosuStaticDataBlocks.empty();
 }
 
@@ -46,7 +51,7 @@ void coreinit_freeToSysArea(MPTR mem);
 
 void CafeStaticData::Allocate()
 {
-	std::unique_lock _l(s_cafeStaticDataMutex);
+	std::unique_lock _l(GetCafeStaticDataMutex());
 	if (!m_vars)
 		return; // empty
 	// register this static block
@@ -93,7 +98,7 @@ void CafeStaticData::Allocate()
 
 void CafeStaticData::Deallocate()
 {
-	std::unique_lock _l(s_cafeStaticDataMutex);
+	std::unique_lock _l(GetCafeStaticDataMutex());
 	if (!m_vars)
 		return; // empty
 	cemu_assert(m_allocation);
@@ -113,7 +118,9 @@ void CafeStaticData::Deallocate()
 
 CafeStaticData::~CafeStaticData()
 {
-	std::unique_lock _l(s_cafeStaticDataMutex);
+	std::unique_lock _l(GetCafeStaticDataMutex());
+	if (!m_vars)
+		return;
 	for (auto& it : *m_vars)
 		it->m_owner = nullptr;
 	delete m_vars;
