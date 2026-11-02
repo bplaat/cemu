@@ -59,6 +59,8 @@ namespace iosu
 				return FSA_RESULT::NOT_FOUND;
 			else if (fscError == FSC_STATUS_ALREADY_EXISTS)
 				return FSA_RESULT::ALREADY_EXISTS;
+			else if (fscError == FSC_STATUS_DIR_NOT_EMPTY)
+				return FSA_RESULT::NOT_EMPTY;
 			cemu_assert_unimplemented();
 			return FSA_RESULT::FATAL_ERROR;
 		}

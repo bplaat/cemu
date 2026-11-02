@@ -262,8 +262,8 @@ public:
 		}
 		if (!fs::remove(_path, ec))
 		{
-			cemu_assert_unimplemented(); // return correct error (e.g. if directory is non-empty)
-			*fscStatus = FSC_STATUS_FILE_NOT_FOUND;
+			*fscStatus = ec == std::errc::directory_not_empty ? FSC_STATUS_DIR_NOT_EMPTY : FSC_STATUS_FILE_NOT_FOUND;
+			return false;
 		}
 		return true;
 	}

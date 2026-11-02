@@ -36,6 +36,7 @@ DEFINE_ENUM_FLAG_OPERATORS(FSC_ACCESS_FLAG);
 #define FSC_STATUS_INVALID_PATH			(1)
 #define FSC_STATUS_FILE_NOT_FOUND		(2)
 #define FSC_STATUS_ALREADY_EXISTS		(3)
+#define FSC_STATUS_DIR_NOT_EMPTY		(4)
 // note: Unlike the native Wii U filesystem, FSC does not provide separate error codes for NOT_A_FILE and NOT_A_DIRECTORY
 // to determine them manually, open with both modes (file and dir) and check the type
 
